@@ -20,19 +20,44 @@ def generate_signals(df, threshold=0.02):
     df.loc[df['Return'].abs() >= threshold, 'Signal'] = 1
     return df
 
-def backtest_straddle(df, hold_days=5):
+def backtest_straddle(df, hold_days=200):
     """
-    Backtest a simple straddle strategy:
-    - Enter straddle at close on signal day
-    - Exit after hold_days
-    - Approximate P&L by the absolute move in stock price during holding period
+    Backtest a straddle strategy based on signals.
+    
+    Parameters:
+    - df: DataFrame with 'Signal' column
+    - hold_days: Number of days to hold the position
+    
+    Returns:
+    - df with 'Position', 'PnL', and 'Cumulative PnL' columns
     """
     df = df.copy()
     df['Position'] = 0
     df['PnL'] = 0.0
 
+    for i in range(len(df)):
+        if df['Signal'].iloc[i] == 1:
+            entry_price = df['Close'].iloc[i]  # this is a scalar float
+            exit_index = i + hold_days
+
+            if exit_index < len(df):
+                exit_price = df['Close'].iloc[exit_index]  # scalar float
+
+                # Calculate absolute return as float
+                abs_return = float(abs((exit_price - entry_price) / entry_price))
+                
+                # Assign realized PnL on the exit date
+                df.iloc[exit_index, df.columns.get_loc('PnL')] += abs_return
+
+                # Mark holding period as position = 1
+                for j in range(i, exit_index):
+                    df.iloc[j, df.columns.get_loc('Position')] = 1
+                    
     df['Cumulative PnL'] = df['PnL'].cumsum()
     return df
+
+
+
 
 def plot_results(df, ticker):
     fig, ax1 = plt.subplots(figsize=(12,6))
