@@ -40,7 +40,7 @@ def generate_signals(df, window=20, std_dev=2):
     return df
 
 # === 4. Backtest option PnL ===
-def backtest_option(df, symbol, expiry, contract, hold_days=5):
+def backtest_option(df, symbol, expiry, contract, hold_days=5): # this is pnl
     df = df.copy()
     df['Opt_Mid'] = np.nan
     df['Entry'] = np.nan
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     df_spy = generate_signals(df_spy, window=20, std_dev=2)
     
     # SPY option:
-    contract_sym = "SPY250613C00600000"
+    contract_sym = "SPY250613C00600000" #SPY250613P00600000 usually expire on next month's 3rd friday or next month
     expiry = "2025-06-13"
     results = backtest_option(df_spy, "SPY", expiry, contract_sym, hold_days=5)
     
