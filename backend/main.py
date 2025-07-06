@@ -2,7 +2,7 @@
 from fastapi import FastAPI, Query
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
-from backend.backtester import run_dispersion_strategy
+from backtester import run_dispersion_strategy
 
 app = FastAPI()
 
