@@ -1,0 +1,44 @@
+.App {
+  background-color: black;
+  color: white; /* white text */
+  font-weight: bold; /* bold text */
+  font-size: 1.5rem; /* bigger text size */
+  min-height: 100vh; /* full viewport height */
+  padding: 2rem;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+input {
+  font-size: 1.1rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  border: none;
+  margin-left: 0.5rem;
+}
+
+button {
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 0.6rem 1.2rem;
+  margin-top: 1rem;
+  border: none;
+  border-radius: 6px;
+  background-color: #005bbb;
+  color: white;
+  cursor: pointer;
+}
+
+button:disabled {
+  background-color: #444;
+  cursor: not-allowed;
+}
+
+.results {
+  margin-top: 2rem;
+  font-size: 1.2rem;
+}
