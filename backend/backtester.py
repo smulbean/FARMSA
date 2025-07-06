@@ -1,6 +1,6 @@
 # backend/backtester.py
 import numpy as np
-from backend.polygon_client import get_daily_closes
+from polygon_client import get_daily_closes
 
 
 
