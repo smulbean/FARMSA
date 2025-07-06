@@ -22,6 +22,7 @@ python3 -m venv venv
 source venv/bin/activate   # On Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
+source venv/bin/activate
 ```
 
 Don't forget to add an backend/.env file for your API key
