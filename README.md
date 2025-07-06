@@ -33,7 +33,7 @@ To run the server:
 ```bash
 uvicorn main:app --reload --port 8000
 ```
-The API will be available at ```bash http://127.0.0.1:8000 ```
+The API will be available at ```http://127.0.0.1:8000 ```
 
 ### 1. Navigate to the frontend directory
 
