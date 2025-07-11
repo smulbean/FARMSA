@@ -59,10 +59,11 @@ function App() {
   const [start, setStart] = useState("2025-01-14");
   const [end, setEnd] = useState("2025-01-24");
   const [totalNotional, setTotalNotional] = useState(1_000_000);
+  const [vegaHedge, setVegaHedge] = useState(0.02);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Convert defaultWeights to object { ticker: weight, ... }
+  // Convert defaultWeights array to an object for API payload
   const weightsToSend = {};
   defaultWeights.forEach(({ ticker, weight }) => {
     weightsToSend[ticker] = weight;
@@ -76,6 +77,7 @@ function App() {
         start,
         end,
         total_notional: totalNotional,
+        vega_hedge: vegaHedge, // Pass Vega Hedge here
       });
 
       setResult(response.data);
@@ -123,6 +125,19 @@ function App() {
               step="1000"
               value={totalNotional}
               onChange={(e) => setTotalNotional(Number(e.target.value))}
+              className="input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="vegaHedge">Vega Hedge (%):</label>
+            <input
+              id="vegaHedge"
+              type="number"
+              min="0"
+              step="0.01"
+              value={vegaHedge}
+              onChange={(e) => setVegaHedge(parseFloat(e.target.value))}
               className="input"
             />
           </div>
