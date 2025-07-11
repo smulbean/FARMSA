@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-stocks_client = RESTClient("IahamkmgED_yfpYn0sX_qSfVLIfxxJXj")
+stocks_client = RESTClient("2OLjrA2D9B53VeTFvoZGfLvYWH1LJ5N0")
 
 
 

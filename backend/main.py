@@ -1,31 +1,63 @@
-# backend/main.py
-from fastapi import FastAPI, Query
-from typing import List
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backtester import run_dispersion_strategy
+from pydantic import BaseModel
+from typing import Dict
+from datetime import datetime
+from backtester import run_dispersion_backtest
 
 app = FastAPI()
 
-# Allow CORS from your frontend origin (adjust URL as needed)
 origins = [
-    "http://localhost:3000",  # React dev server default port]
-    "http://localhost:5080",  
-    # add your deployed frontend URL here if applicable
+    "http://localhost:3000",
+    "http://localhost:5080",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # allow origins you want to accept requests from
+    allow_origins=["*"],  # For dev/testing; restrict in prod for security
     allow_credentials=True,
-    allow_methods=["*"],  # allow all methods (GET, POST, etc)
-    allow_headers=["*"],  # allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-@app.get("/backtest")
-def backtest(
-    symbols: List[str] = Query(..., description="Comma separated symbols"),
-    start: str = Query(..., description="Start date YYYY-MM-DD"),
-    end: str = Query(..., description="End date YYYY-MM-DD"),
-):
-    results = run_dispersion_strategy(symbols, start, end)
-    return results
+API_KEY = "2OLjrA2D9B53VeTFvoZGfLvYWH1LJ5N0"
+EXPIRY = "2025-12-19"
+CONTRACT_TYPE = "call"
+HEDGE_THRESHOLD = 0.02
+SPY_STRIKE = 650
+
+
+class BacktestRequest(BaseModel):
+    weights: Dict[str, float]
+    start: str  # Expecting "YYYY-MM-DD"
+    end: str
+    total_notional: float = 1_000_000
+
+
+@app.post("/backtest")
+def backtest(req: BacktestRequest):
+    try:
+        start_date = datetime.strptime(req.start, "%Y-%m-%d")
+        end_date = datetime.strptime(req.end, "%Y-%m-%d")
+    except Exception as e:
+        return {"error": f"Invalid date format: {e}"}
+
+    result = run_dispersion_backtest(
+        api_key=API_KEY,
+        weights=req.weights,
+        total_notional=req.total_notional,
+        expiry=EXPIRY,
+        contract_type=CONTRACT_TYPE,
+        start_date=start_date,
+        end_date=end_date,
+        hedge_threshold=HEDGE_THRESHOLD,
+        spy_strike=SPY_STRIKE,
+    )
+
+    if result is None:
+        return {"error": "Backtest failed or no data."}
+
+    # Optionally add weights back to response for frontend display
+    result["weights"] = req.weights
+
+    return result

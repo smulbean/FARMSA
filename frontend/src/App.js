@@ -56,32 +56,35 @@ const defaultWeights = [
 ];
 
 function App() {
-  const [symbols, setSymbols] = useState("AAPL,MSFT,NVDA");
-  const [start, setStart] = useState("2023-01-01");
-  const [end, setEnd] = useState("2023-12-31");
-  const [vegaHedge, setVegaHedge] = useState(0);
+  const [start, setStart] = useState("2025-01-14");
+  const [end, setEnd] = useState("2025-01-24");
+  const [totalNotional, setTotalNotional] = useState(1_000_000);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Convert defaultWeights to object { ticker: weight, ... }
+  const weightsToSend = {};
+  defaultWeights.forEach(({ ticker, weight }) => {
+    weightsToSend[ticker] = weight;
+  });
+
   const runBacktest = async () => {
-  setLoading(true);
-  try {
-    const response = await axios.get("http://localhost:8000/backtest", {
-      params: {
-        symbols: symbols, // send as string, e.g. "AAPL,MSFT,NVDA"
+    setLoading(true);
+    try {
+      const response = await axios.post("http://localhost:8000/backtest", {
+        weights: weightsToSend,
         start,
         end,
-        vega_hedge: parseFloat(vegaHedge) || 0,
-      },
-    });
-    setResult(response.data);
-  } catch (err) {
-    alert("Error fetching data");
-  } finally {
-    setLoading(false);
-  }
-};
+        total_notional: totalNotional,
+      });
 
+      setResult(response.data);
+    } catch (err) {
+      alert("Error fetching data: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="App">
@@ -112,18 +115,18 @@ function App() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="vegaHedge">Vega Hedge (%):</label>
+            <label htmlFor="totalNotional">Total Notional ($):</label>
             <input
-              id="vegaHedge"
+              id="totalNotional"
               type="number"
               min="0"
-              max="100"
-              step="0.1"
-              value={vegaHedge}
-              onChange={(e) => setVegaHedge(e.target.value)}
+              step="1000"
+              value={totalNotional}
+              onChange={(e) => setTotalNotional(Number(e.target.value))}
               className="input"
             />
           </div>
+
           <button onClick={runBacktest} disabled={loading} className="primary-button">
             {loading ? "Running Backtest..." : "Run Backtest"}
           </button>
@@ -140,13 +143,10 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {(
-                result && result.weights
-                  ? Object.entries(result.weights)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([ticker, weight]) => ({ ticker, weight }))
-                  : defaultWeights
-              ).map(({ ticker, weight }) => (
+              {(result && result.weights
+                ? Object.entries(result.weights).sort((a, b) => b[1] - a[1])
+                : defaultWeights.map(({ ticker, weight }) => [ticker, weight])
+              ).map(([ticker, weight]) => (
                 <tr key={ticker}>
                   <td>{ticker}</td>
                   <td>{(weight * 100).toFixed(4)}%</td>
@@ -161,14 +161,42 @@ function App() {
       {result && (
         <div className="results results-below">
           <h3>Results:</h3>
-          <p>Index Volatility: {result.index_vol.toFixed(4)}</p>
           <p>
-            Component Volatilities: {" "}
-            {result.component_vols.map((v, i) => (
-              <span key={i}>{v.toFixed(4)} </span>
-            ))}
+            Final PnL:{" "}
+            <strong>
+              {typeof result.final_pnl === "number"
+                ? `$${result.final_pnl.toFixed(2)}`
+                : "N/A"}
+            </strong>
           </p>
-          <p>Dispersion: {result.dispersion.toFixed(4)}</p>
+
+          <h4>Daily PnLs</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>PnL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.dates && result.pnls && result.dates.length > 0 ? (
+                result.dates.map((date, i) => (
+                  <tr key={date}>
+                    <td>{new Date(date).toLocaleDateString()}</td>
+                    <td>
+                      {typeof result.pnls[i] === "number"
+                        ? `$${result.pnls[i].toFixed(2)}`
+                        : "N/A"}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={2}>No PnL data</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
