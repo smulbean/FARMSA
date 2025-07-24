@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Optional
 from datetime import datetime
-from backtester import run_dispersion_backtest
+from .backtester import run_dispersion_backtest
 
 app = FastAPI()
 
@@ -20,10 +20,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = "2OLjrA2D9B53VeTFvoZGfLvYWH1LJ5N0"
+
+STOCK_API_KEY = "qKpnAGCOOWHnsxX4ZvZUZCpKFBKllLuO"
+OPTION_API_KEY = "2OLjrA2D9B53VeTFvoZGfLvYWH1LJ5N0"
 EXPIRY = "2025-12-19"
 CONTRACT_TYPE = "call"
 SPY_STRIKE = 650
+
+# Use option key for backtester
+API_KEY = OPTION_API_KEY
 
 class BacktestRequest(BaseModel):
     weights: Dict[str, float]
@@ -42,15 +47,15 @@ def backtest(req: BacktestRequest):
         return {"error": f"Invalid date format: {e}"}
 
     result = run_dispersion_backtest(
-        api_key=API_KEY,
-        weights=req.weights,
-        total_notional=req.total_notional,
-        expiry=EXPIRY,
-        contract_type=CONTRACT_TYPE,
-        start_date=start_date,
-        end_date=end_date,
-        hedge_threshold=req.vega_hedge,  # use vega_hedge from request here
-        spy_strike=SPY_STRIKE,
+         OPTION_API_KEY,
+         req.weights,
+         req.total_notional,
+         EXPIRY,
+         CONTRACT_TYPE,  # unused inside run_dispersion_backtest but kept for positional arg
+         start_date,
+         end_date,
+         req.vega_hedge,  # use vega_hedge from request here
+         SPY_STRIKE,
     )
 
     if result is None:

@@ -1,5 +1,5 @@
-import yfinance as yf
 from polygon import RESTClient
+from .polygon_client import stocks_client
 from datetime import datetime, timedelta
 import math
 import numpy as np
@@ -8,17 +8,13 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-API_KEY = os.getenv("POLYGON_API_KEY")
+OPTION_API_KEY = os.getenv("OPTION_API_KEY", "2OLjrA2D9B53VeTFvoZGfLvYWH1LJ5N0")
 
-if not API_KEY:
-    raise ValueError("POLYGON_API_KEY is not set in the .env file.")
-
+client = RESTClient(OPTION_API_KEY)
 
 expiry = "2025-12-19"
 contract_type = "call"
 spy_strike = 650
-
-client = RESTClient(API_KEY)
 
 def build_option_symbol(ticker, expiration_date, strike_price, call_put):
     yymmdd = datetime.strptime(expiration_date, "%Y-%m-%d").strftime("%y%m%d")
@@ -28,13 +24,21 @@ def build_option_symbol(ticker, expiration_date, strike_price, call_put):
 def round_to_nearest_10(x):
     return round(x / 10) * 10
 
-def get_stock_close_price_yf(ticker, date_str):
-    date = datetime.strptime(date_str, "%Y-%m-%d")
-    next_day = date + timedelta(days=1)
-    df = yf.download(ticker, start=date_str, end=next_day.strftime("%Y-%m-%d"), progress=False, auto_adjust=True)
-    if df.empty:
+def get_stock_close_price_poly(ticker, date_str):
+    """Return close price for specific date using Polygon daily aggs."""
+    try:
+        aggs = stocks_client.get_aggs(
+            ticker=ticker,
+            multiplier=1,
+            timespan="day",
+            from_=date_str,
+            to=date_str,
+            adjusted=True,
+            limit=1,
+        )
+        return aggs[0].close if aggs else None
+    except Exception:
         return None
-    return df['Close'].iloc[0].item()
 
 def get_option_close_price(option_symbol, date_str):
     try:
@@ -48,7 +52,7 @@ def calculate_contracts_and_vega(api_key, weightings, total_notional, expiration
     notional_allocations = {k: v / sum(weightings.values()) * total_notional for k, v in weightings.items()}
     results = {}
     for ticker, notional in notional_allocations.items():
-        stock_price = get_stock_close_price_yf(ticker, pricing_date)
+        stock_price = get_stock_close_price_poly(ticker, pricing_date)
         if stock_price is None:
             results[ticker] = "No stock price data."
             continue
@@ -102,7 +106,7 @@ def portfolio_value(results, date_str):
     for ticker, data in results.items():
         if not isinstance(data, dict):
             continue
-        stock_price = get_stock_close_price_yf(ticker, date_str)
+        stock_price = get_stock_close_price_poly(ticker, date_str)
         if stock_price is None:
             continue
         strike_price = round_to_nearest_10(float(stock_price))
@@ -113,11 +117,11 @@ def portfolio_value(results, date_str):
         val += price * data["shares_per_contract"] * data["contracts"]
     return val
 
-def get_spy_hedge_contracts(vega_needed, date_str):
+def get_spy_hedge_contracts(vega_needed, date_str, spy_strike_value):
     spy_options = list(client.list_snapshot_options_chain(
         "SPY",
         params={
-            "strike_price": spy_strike,
+            "strike_price": spy_strike_value,
             "expiration_date": expiry,
             "contract_type": contract_type,
             "order": "asc",
@@ -128,7 +132,7 @@ def get_spy_hedge_contracts(vega_needed, date_str):
     if not spy_options:
         return None
     o = spy_options[0]
-    option_symbol = build_option_symbol("SPY", expiry, spy_strike, contract_type[0])
+    option_symbol = build_option_symbol("SPY", expiry, spy_strike_value, contract_type[0])
     price = get_option_close_price(option_symbol, date_str)
     vega = getattr(o.greeks, "vega", None)
     shares_per_contract = getattr(o.details, "shares_per_contract", 100)
@@ -152,7 +156,7 @@ def run_dispersion_backtest(api_key, weights, total_notional, expiry, contract_t
     # Initial portfolio and hedge
     try:
         portfolio = calculate_contracts_and_vega(api_key, weights, total_notional, expiry, start_date.strftime("%Y-%m-%d"), contract_type)
-        spy_hedge = get_spy_hedge_contracts(total_vega(portfolio), start_date.strftime("%Y-%m-%d"))
+        spy_hedge = get_spy_hedge_contracts(total_vega(portfolio), start_date.strftime("%Y-%m-%d"), spy_strike)
         if spy_hedge is None:
             raise RuntimeError("Could not get initial SPY hedge data.")
     except Exception as e:
@@ -200,7 +204,7 @@ def run_dispersion_backtest(api_key, weights, total_notional, expiry, contract_t
             vega_ratio = spy_hedge_vega / port_vega if port_vega else 1.0
 
             if abs(vega_ratio - 1.0) > hedge_threshold:
-                new_hedge = get_spy_hedge_contracts(port_vega, date_str)
+                new_hedge = get_spy_hedge_contracts(port_vega, date_str, spy_strike)
                 if new_hedge is not None:
                     realized_pnl_from_closing = (spy_price - prev_hedge_price) * prev_hedge_contracts * spy_hedge["shares_per_contract"]
                     realized_hedge_pnl += realized_pnl_from_closing
